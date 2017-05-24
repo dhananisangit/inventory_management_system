@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block content %} 
+<script>    
+var ims = angular.module("ims", ['ngAnimate', 'ngSanitize', 'ui.bootstrap']);
+ims.controller('sfdc_ctrl', function($scope,$http,$window){
+
+    $scope.ship=false;
+    $scope.receive = false;
+    $scope.logout = function(){
+        sessionStorage.removeItem('username');
+        $window.location.href='logout';
+    }
+
+    $scope.getSFDCData = function(){
+        $http({
+            method:"GET",
+            url:'v1/getsfdcdata'
+        }).then(function(res){
+            $scope.ProductType = []
+            $scope.accounts = []
+            $scope.suppNumber = res.data['supp']
+            for(var i=0;i<res.data['prd']['records'].length;i++){
+                $scope.ProductType.push(res.data['prd']['records'][i]['ProductCode']);
+            }
+            for(var i=0;i<res.data['acc']['records'].length;i++){
+                $scope.accounts.push({
+                    'Name':res.data['acc']['records'][i]['Name'],
+                    'Id':res.data['acc']['records'][i]['Id']
+                });
+            }
+        });
+    }
+    
+    $scope.switch = function(type,data){
+        if(type=="s"&&data)$scope.ship=false
+        else if(type=="s"&&!data)$scope.ship=true
+        else if(type=="r"&&data) $scope.receive = false
+        else if(type=="r"&&!data) $scope.receive = true
+    }
+
+    $scope.onSelect = function(object, type){
+        $scope.first = ""
+        $scope.second = ""
+        for(var i=0;i<object['Id'].length;i++){
+            if(object['Id'].length/2>i) $scope.first+=object['Id'][i];
+            else $scope.second+=object['Id'][i];
+        }
+        if(type=="receive") $scope.fetchSerialNumberfromSFDC()
+    }
+
+    $scope.fetchSerialNumberfromSFDC = function(){
+        $http({
+            method:"POST",
+            url:'v1/fetchserialnumberfromsfdc',
+            data:{
+                first:$scope.first,
+                second:$scope.second,
+                supp:$scope.receivesupp[0].split('-')[1],
+                pType:$scope.receivepType,
+            },
+        }).then(function(res){
+            $scope.receivedSerialNumbers = res.data    
+        });
+    }
+
+    $scope.fetchSerialNumber = function(){
+        $scope.shippedSerialNumber=""
+        $http({
+            method:"POST",
+            url:'v1/fetchserialnumber',
+            data:$scope.shipsupp[0].split('-')[1],
+        }).then(function(res){
+            $scope.suppData = res.data
+            for(var i=0;i<res.data.length;i++){
+                if($scope.pType==res.data[i][1]) $scope.shippedSerialNumber = res.data[i][0]
+            }      
+        });
+    }
+
+    $scope.matchSerialNumber = function(type){
+        if($scope.supp==undefined || $scope.supp=="") $scope.shippedSerialNumber=""
+        else {
+            for(var i=0;i<$scope.suppData.length;i++){
+                if($scope.pType==$scope.suppData[i][1] && type=="ship") {
+                    $scope.shippedSerialNumber = $scope.suppData[i][0]
+                }
+                else $scope.receivedSerialNumber = $scope.suppData[i][0]
+            }  
+        }
+    }
+
+    $scope.shipPart = function(){
+        $http({
+            method:"POST",
+            url:'v1/shippart',
+            contentType:'application/json',
+            data:{
+                first:$scope.first,
+                second:$scope.second,
+                ProductCode:$scope.pType,
+                serialNumber:$scope.shippedSerialNumber,
+                suppNumber:$scope.shipsupp[0].split('-')[1]
+                },
+        }).then(function(res){
+            if(res.data=="Success") {
+                swal("Done", "Asset created in SFDC!", "success")
+                $scope.generic()
+            }
+            else swal("Failed", "Account name and serial number do not match. Please try again!", "error")
+            
+        });
+    }
+
+    $scope.swap = function(){
+        $http({
+            method:"POST",
+            url:'v1/receivepart',
+            contentType:'application/json',
+            data:{
+                serialNumber:$scope.receivedSerialNumber,
+                first:$scope.first,
+                second:$scope.second,
+                supp:$scope.receivesupp[0].split('-')[1]
+            },
+        }).then(function(res){
+            if(res.data=="NotFound")swal("Failed", "Account name and serial number do not match. Please try again!", "error")
+            else {
+                swal("Done", "Asset updated in SFDC!", "success")
+                $scope.generic()
+            }
+        });
+    }
+
+    $scope.generic = function(){
+        $scope.shipsupp =""
+        $scope.pType = ""
+        $scope.shippedSerialNumber=""
+        $scope.accName = ""
+        $scope.first = ""
+        $scope.second=""
+        $scope.receiveaccName=""
+        $scope.receivedSerialNumber=""
+    }
+});
+</script>
+<div id="page-content-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+             <div class="col-lg-12" ng-init="getSFDCData()">
+                <h1>Corrections in SFDC for Serial Numbers</h1> <br/>
+                <h3 ng-click="switch('s',ship)"><a href="">Ship></a></h3><br/>
+                
+                <div ng-show="ship">
+                    <input type="text" ng-model="shipsupp" uib-typeahead="part for part in suppNumber | filter:$viewValue" typeahead-append-to-body="true" placeholder="SUPP-XXXX">
+                    <input type="text" ng-model="pType" typeahead-on-select="fetchSerialNumber('ship')" uib-typeahead="part for part in ProductType | filter:$viewValue" typeahead-append-to-body="true" placeholder="Product Type">
+                    <input type="text" ng-model="shippedSerialNumber" placeholder="Serial Number">
+                    <input type="text" ng-model="accName" uib-typeahead="name.Name for name in accounts | filter:$viewValue" typeahead-on-select="onSelect($item,'ship')" typeahead-append-to-body="true" placeholder="Account Name">
+                    <button style="padding:0px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="shipPart()">Ship</button>
+                    <br/><br/>
+                </div>
+                <h3 ng-click="switch('r',receive)"><a href="">Receive></a></h3><br/>
+                 <div ng-show="receive">
+                    <input type="text" ng-model="receivesupp" uib-typeahead="part for part in suppNumber | filter:$viewValue" typeahead-append-to-body="true" placeholder="SUPP-XXXX">
+                     <input type="text" ng-model="receivepType" uib-typeahead="part for part in ProductType | filter:$viewValue" typeahead-append-to-body="true" placeholder="Product Type">
+                    <input type="text" ng-model="receiveaccName" uib-typeahead="name.Name for name in accounts | filter:$viewValue" typeahead-on-select="onSelect($item,'receive')" typeahead-append-to-body="true" placeholder="Account Name">
+                    <input type="text" ng-model="receivedSerialNumber" uib-typeahead="num for num in receivedSerialNumbers | filter:$viewValue" placeholder="Serial Number">
+                    <button style="padding:0px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="swap()">Swap</button>
+                    <br/><br/>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<script>
+var ims = angular.module("ims", []);
+ims.controller('track_page_ctrl', function($scope,$http,$window){
+    $scope.disabled = "disabled"
+    $scope.currentPage = 0;
+    $scope.pageSize = 20;
+
+    $scope.getHistory = function(){
+        $http({
+            method:"GET",
+            url:'v1/gethistory'
+        }).then(function(res){
+            $scope.allData = [];
+
+            for (var i = 0; i < res.data.length; i++) {
+                var date = new Date(res.data[i]['date'])
+                var dateOfMove = date.getMonth() + "/"+date.getDate() + "/" + date.getFullYear()
+                $scope.allData.push({
+                    'pn':res.data[i]['part_name'],
+                    'qty':res.data[i]['quantity'],
+                    'from':res.data[i]['from_inventory'],
+                    'to':res.data[i]['to_inventory'],
+                    'when':dateOfMove,
+                    'why':res.data[i]['reason'],
+                    'who':res.data[i]['user_id_id']
+                });
+            }
+            $scope.searchPart = "";
+
+            console.log($scope.allData)
+        });
+    }
+
+
+    $scope.changePage = function(action){
+        if(action=='prev' && $scope.currentPage!=0){
+            $scope.currentPage -= 1
+            if($scope.currentPage==0) $scope.disabled = "disabled"
+                else $scope.disabled = ""
+        }
+        else if(action=='next'){
+            $scope.currentPage +=1;
+            if($scope.currentPage>=$scope.allData.length/$scope.pageSize-1){
+                $scope.disabled = "disabled"
+            }
+            else $scope.disabled = ""
+        }
+    }
+
+    $scope.logout = function(){
+        sessionStorage.removeItem('username');
+        $window.location.href='logout';
+    }
+
+});
+
+ims.filter('startFrom', function() {
+    return function(input, start) {
+        start = +start;
+        return input.slice(start);
+    }
+});
+</script>
+{% verbatim %}
+<div id="page-content-wrapper" ng-init="getHistory()">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12" text-align="center">
+                <h1>Track Parts</h1>
+                <input type="text" class="textbox-control" placeholder="Search by employee" ng-model="searchPart.name">
+                <input type="text" class="textbox-control" placeholder="Search by part number" ng-model="searchPart.pn"></br>
+                <div class="container">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Part Name</th>
+                                    <th>Quantity</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>When</th>
+                                    <th>Why</th>
+                                    <th>Who</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="data in allData |orderBy:'when':true| filter:{pn:searchPart.pn, who:searchPart.name} |startFrom:currentPage*pageSize|limitTo:pageSize">
+                                    <td>{{data.pn}}</td>
+                                    <td>{{data.qty}}</td>
+                                    <td>{{data.from}}</td>
+                                    <td>{{data.to}}</td>
+                                    <td>{{data.when}}</td>
+                                    <td>{{data.why}}</td>
+                                    <td>{{data.who}}</td>
+                                </tr>
+                            </tbody>
+
+                        </table>
+                    </div>
+                <ul class="pagination" align="right">
+                    <li ng-class="disabled"><a href="" ng-click="changePage('prev')">Prev</a></li>
+                    <li ng-disbaled="!disabled"><a href="" ng-click="changePage('next')">Next</a></li>
+                  </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endverbatim %}
+{% endblock %}

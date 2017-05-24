@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<script>    
+var ims = angular.module("ims", []);
+ims.controller('add_part_ctrl', function($scope,$http,$window){
+    if(!sessionStorage.getItem('username')) {
+        $window.location.href='logout';
+    }
+     $scope.username = sessionStorage.getItem('username')
+
+    if(sessionStorage.getItem('auth_level')!=1) {
+        $window.location.href='home';
+    }
+    else $scope.admin = true;
+
+    $scope.logout = function(){
+        sessionStorage.removeItem('username');
+        $window.location.href='logout';
+    }
+
+    $scope.addPart = function(){
+        $http({
+            method:"POST",
+            url:'v1/addnewpart',
+            data:{
+                pn:$scope.partNumber,
+                lead_time:$scope.part_leadtime
+            },
+            }).then(function(res){  
+                if(res.data=="Part Already Exists" || res.data=="404")swal("Failed", "Part already exists.\nPlease fill accurate details", "error");
+                else swal("Success", "Part : "+ $scope.partNumber+" added", "success");
+        }); 
+    }
+
+});
+</script>
+    <div id="page-content-wrapper">
+        <div class="container-fluid">
+            <div class="row" align="center">
+                <div class="col-lg-12" text-align="center">
+                   <h1>Add/Revise Parts</h1>
+                   <br/>
+                   <input type="text" class="textbox-control" id="pn" placeholder="Part Number" required ng-model="partNumber"></br></br>
+                   <input type="text" class="textbox-control" id="pn_leadtime" placeholder="Lead Time" required ng-model="part_leadtime"></br></br>
+                   <button style="padding:5px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="addPart()">Add Part</button>
+                </div>
+            </div>
+        </div>
+{% endblock %}

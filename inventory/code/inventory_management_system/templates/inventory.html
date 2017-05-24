@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<script>
+angular.module("ims", [])
+      .config(['$httpProvider', function($httpProvider) {
+          $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+          $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+      }])
+
+      .controller('inventory_page_ctrl', function($scope,$http,$window){
+
+    $scope.showPartData = false;
+    $scope.sort = 'pn'
+    $scope.showinventory = true
+    $scope.showlocation = false
+    $scope.active_tab=false
+
+    $scope.inventory = function(){
+         $http({
+            method:"GET",
+            url:'v1/getinventorylist'
+        }).then(function(res){
+            $scope.locationDetails = res.data
+            $scope.partList = new Object();
+            for (var i = 0; i < res.data.length; i++) {
+                if($scope.partList.hasOwnProperty(res.data[i]['part_number'])){
+                    $scope.partList[res.data[i]['part_number']].qty +=  res.data[i]['quantity']
+
+                    if($scope.partList[res.data[i]['part_number']].desc==null && res.data[i]['desc']!=null){
+                        $scope.partList[res.data[i]['part_number']].desc = res.data[i]['desc']
+                    }
+
+                    if(res.data[i]['part_number']!==null && res.data[i]['building_name'].includes("921")){
+                        $scope.partList[res.data[i]['part_number']].minqty += res.data[i]['quantity']
+                    }
+                }
+
+                else{
+                    $scope.partList[res.data[i]['part_number']] = {
+                        pn:res.data[i]['part_name'],
+                        partID:res.data[i]['part_number'],
+                        desc:res.data[i]['description'],
+                        qty:res.data[i]['quantity'],
+                        minqty:res.data[i]['quantity']
+                    }
+                }
+            }
+            $scope.partArray = $.map($scope.partList, function(value, index){
+                return [value];
+            })
+        });
+    }
+    $scope.showDetails = function(partname, desc, partID){
+        $scope.partname = partname;
+        $scope.desc = desc;
+        $http({
+            method:"POST",
+            url:'v1/getinventorypartdetails',
+            data:partID,
+        }).then(function(res){
+            $scope.partDetails = [];
+            $scope.showPartData = true;
+            $scope.total = 0;
+            for (var i = 0; i < res.data.length; i++) {
+                if (res.data[i]['quantity'] > 0){
+                  var date = new Date(res.data[i]['date_modified'])
+                  var lastModifiedDate = date.getMonth() + "/"+date.getDate() + "/" + date.getFullYear()
+                    $scope.partDetails.push({
+                        'qty':res.data[i]['quantity'],
+                        'location':res.data[i]['location_name'],
+                        'building':res.data[i]['building_name'],
+                        'when':lastModifiedDate,
+                    });
+                }
+                $scope.total += res.data[i]['quantity'];
+            }
+        });
+    }
+
+    $scope.setReverseOrder = function(column){
+
+        if($scope.sort==column ){
+            $scope.sort = '-'+column
+        }
+        else $scope.sort=column
+
+    }
+
+    $scope.location = function(){
+        $scope.showinventory = false
+        $scope.showlocation = true
+        $scope.inventory_tab=!$scope.inventory_tab
+        $scope.locationList = []
+        for(var i=0;i<$scope.locationDetails.length;i++){
+
+            if($scope.locationDetails[i]['quantity']>0){
+                $scope.locationList.push({
+                    'location':$scope.locationDetails[i]['location_name'],
+                    'building':$scope.locationDetails[i]['building_name'],
+                    'pn':$scope.locationDetails[i]['part_name'],
+                    'desc':$scope.locationDetails[i]['description'],
+                    'qty':$scope.locationDetails[i]['quantity'],
+                })
+            }
+        }
+
+    }
+
+    $scope.toggleInventory = function(){
+        $scope.showinventory = true
+        $scope.showlocation = false
+        $scope.location_tab = !$scope.location_tab
+    }
+
+
+    $scope.logout = function(){
+        sessionStorage.removeItem('username');
+        $window.location.href='logout';
+    }
+});
+</script>
+{% verbatim %}
+    <div id="page-content-wrapper" ng-init="inventory()">
+
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-2">
+                <button style="padding:10px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="toggleInventory()">Inventory</button>
+            </div>
+            <div class="col-sm-2">
+                <button style="padding:10px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="location()">Location</button>
+            </div>
+        </div>
+    </div>
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-lg-12" text-align="center" ng-show="showinventory">
+                    <div class="container">
+                        <div class="table-responsive">
+                        <br/><input type="text" text-align="center" ng-model="searchPart.pn" placeholder="2001" /><br/>
+                        <span ng-if="results.length==0"><h3>No Such Part Found</h3></span>
+                        <span ng-if="!partArray"><h3>Loading....</h3></span>
+
+                            <table class="table" ng-show="!showPartData&&results.length>0">
+                                <thead>
+                                    <tr>
+                                        <th ng-click="setReverseOrder('pn')"><a href=""/>Part Number ^</th>
+                                        <th ng-click="setReverseOrder('qty')"><a href=""/>Total Quantity</th>
+                                        <th ng-click="setReverseOrder('minqty')"><a href=""/>921 Quantity</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="data in partArray | orderBy:sort| filter:searchPart as results">
+                                        <td><a href="" ng-click="showDetails(data.pn, data.desc, data.partID)">{{data.pn}}</a></td>
+                                        <td>{{data.qty}}</td>
+                                        <td>{{data.minqty}}</td>
+                                        <td>{{data.desc}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="container" ng-show="showPartData">
+                                <div class="table-responsive">
+                                <br/><button style="padding:5px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="showPartData = false">Go Back</button>
+                                    <h3>Part: {{partname}}</h3>
+                                    <h3>Description: {{desc}}</h3>
+                                    <!-- <h3>Price Per Unit: {{price_per_unit}}</h3>
+                                    <h3>Date of last Purchase: {{date_last_PO}}</h3>
+                                    <h3>Supplier: {{supplier_name}}</h3> -->
+                                    <br/>
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Quantity</th>
+                                                <th>Building</th>
+                                                <th>Location</th>
+                                                <th>Last Move Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr ng-repeat="data in partDetails">
+                                                <td>{{data.qty}}</td>
+                                                <td>{{data.building}}</td>
+                                                <td>{{data.location}}</td>
+                                                <td>{{data.when}}</td>
+                                            </tr>
+                                        </tbody>
+
+                                    </table>
+                                    <h3>Total: {{total}}</h3>
+                                </div>
+                            </div>
+                    </div>
+                    </div>
+                </div>
+                <div class="col-lg-12" text-align="center" ng-show="showlocation">
+                    <div class="container">
+                        <div class="table-responsive">
+                        <br/><input type="text" ng-model="searchLocation.location" placeholder="WR35-4" /><br/>
+                        <span ng-if="locresults.length==0&&partArray"><h3>No Such Location Found</h3></span>
+                        <!-- <span ng-if="results.length==0"><h3>No Such Part Found</h3></span> -->
+                        <span ng-if="!partArray"><h3>Loading....</h3></span>
+                            <table class="table" ng-show="locresults.length>0">
+                                <thead>
+                                    <tr>
+                                        <th>Location</th>
+                                        <th>Building</th>
+                                        <th>Part Number</th>
+                                        <th>Quantity</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="loc in locationList| orderBy:'location' | filter:searchLocation as locresults">
+                                        <td>{{loc.location}}</td>
+                                        <td>{{loc.building}}</td>
+                                        <td>{{loc.pn}}</td>
+                                        <td>{{loc.qty}}</td>
+                                        <td>{{loc.desc}}</td>
+
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+             {% endverbatim %}
+{% endblock %}

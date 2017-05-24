@@ -1,0 +1,26 @@
+# Use the following as a base for your nginx configure to serve
+# the app via reverse proxy. Lets nginx do the work of SSL term.
+# 
+# Use the upstream app server for the WSGI app.
+# Add the location to your server config to proxy the app.
+
+upstream {{ app_name }}_app_server {
+  server unix:{{ deploy_dir }}/run/gunicorn.sock fail_timeout=0;
+}
+
+server {
+
+        location /{{ app_name }} {
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Host $http_host;
+                set_real_ip_from 127.0.0.1;
+                real_ip_header X-Forwarded-For;
+                real_ip_recursive on;
+                proxy_set_header X-Real-IP $remote_addr;
+ 
+                proxy_redirect off;
+                proxy_pass http://{{ app_name }}_app_server/;
+        }
+
+}
+

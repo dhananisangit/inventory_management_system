@@ -1,0 +1,428 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<script>
+angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
+      .config(['$httpProvider', function($httpProvider) {
+          $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+          $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+      }])
+
+      .controller('purchasing_page_ctrl', function($scope,$http,$window){
+
+
+    $scope.showReport = false;
+    $scope.editData = false;
+    $scope.newReportData = false;
+    $scope.showPurchasing = true;
+    $scope.reportSection = false;
+
+
+    $scope.getInventoryData = function(){
+         $http({
+            method:"GET",
+            url:'v1/getpurchasingdetails'
+        }).then(function(res){
+            $scope.purchaseList = [];
+            for (var i = 0; i < res.data.length; i++) {
+                $scope.purchaseList.push({
+                    'pn':res.data[i]['part_name'],
+                    'leadtime':res.data[i]['lead_time'],
+                    'qty_beamplus':res.data[i]['qty_beamplus'],
+                    'qty_beampro':res.data[i]['qty_beampro'],
+                    'pn_id':res.data[i]['part_number']
+                });
+            }
+        });
+
+         $http({
+            method:"GET",
+            url:'v1/getbuildratedetails'
+        }).then(function(res){
+            $scope.beamPlusBuildRate = res.data[0]['build_rate'];
+            $scope.beamProBuildRate = res.data[1]['build_rate'];
+        });
+    }
+
+    $scope.getReportData = function(){
+        $scope.showReport = true;
+        $scope.showPurchasing = !$scope.showPurchasing;
+        $scope.filteredData = []
+        $http({
+            method:"GET",
+            url:'v1/getreportdata',
+        }).then(function(res){
+            $scope.filteredData = []
+            for(var property in res.data){
+                $scope.filteredData.push({
+                    pn:res.data[property]['pn'],
+                    desc:res.data[property]['desc'],
+                    qty:res.data[property]['qty'],
+                    minqty:res.data[property]['minqty'],
+                    needbydate:res.data[property]['needbydate']
+                    // qty_on_quote:res.data[property]['qty_on_quote'],
+                    // qty_to_be_delivered:res.data[property]['qty_to_be_delivered'],
+                    // deliver_date:res.data[property]['deliver_date'],
+                    // po_number:res.data[property]['po_number'],
+                    // qty_in_stock:res.data[property]['qty_in_stock']
+                })
+            }
+        });
+
+    }
+
+
+    $scope.deletePart = function(part){
+        $http({
+            method:"POST",
+            url:'v1/getpartcount',
+            data:part,
+        }).then(function(res){
+            $scope.partInfo = res.data.qty!=null?res.data.qty:0;
+            swal({
+                title: "Are you sure?",
+                text: $scope.partInfo+" number of parts exists",
+                type: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "Yes, delete it!",
+                closeOnConfirm: false
+            }, function(){
+                 $http({
+                    method:"POST",
+                    url:'v1/deletepart',
+                    data:part,
+                }).then(function(res){
+                    swal("Deleted!", "You deleted part: "+part, "success");
+                    $scope.getInventoryData();
+                });
+            });
+        });
+    }
+
+    $scope.saveBuildRateDetails = function(){
+        $http({
+            method:"POST",
+            url:'v1/savebuildrate',
+            data:{
+                beamplus:$scope.beamPlusBuildRate,
+                beampro:$scope.beamProBuildRate
+            },
+        }).then(function(res){
+           if(res.status==200) swal("Done", "Build Rate saved!", "success")
+           else swal("Failed", "Please try again!", "error")
+            $scope.getInventoryData();
+        });
+
+
+    }
+
+    $scope.savePartDetails = function(part, leadtime, beamplus, beampro){
+        if((leadtime==undefined||leadtime=="") && (beamplus==undefined||beamplus=="") && (beampro==undefined||beampro=="")){
+            alert("error");
+        }
+        var lead_time = leadtime==undefined||leadtime==""?0:leadtime;
+        var beam_plus = beamplus==undefined||beamplus==""?0:beamplus;
+        var beam_pro = beampro==undefined||beampro==""?0:beampro;
+        swal({
+                title: "Are you sure?",
+                text: "Save details for part:"+part,
+                type: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "Yes, save it!",
+                closeOnConfirm: false
+            }, function(){
+                $http({
+                method:"POST",
+                url:'v1/saveinventorydetails',
+                data:{
+                    part:part,
+                    leadtime:lead_time,
+                    beamplus:beam_plus,
+                    beampro:beam_pro
+                },
+                }).then(function(res){
+                    console.log(res.data)
+                    if(res.data.status==200) swal("Save!", "Details saved for part "+part, "success");
+                    else swal("Failed", "Please try again!", "error")
+                    $scope.getInventoryData();
+
+                });
+            });
+    }
+
+    $scope.getHeader = function(){
+        return ["Part", "Description", "Quantity", "Minimum Quantity to be ordered", "Date needed by"]
+    }
+
+    $scope.getNewReportData = function(){
+        $scope.showReport = false;
+        $scope.newReportData = !$scope.newReportData
+        $scope.newReportFilteredData = new Object();
+
+        // $scope.partList = new Object();
+
+        for (var i=0;i<$scope.filteredData.length;i++){
+
+            var qty_in_stock = $scope.filteredData[i]['qty_in_stock']
+            var qty_to_be_delivered = $scope.filteredData[i]['qty_to_be_delivered']
+            var qty_on_quote = $scope.filteredData[i]['qty_on_quote']
+            var recommended_qty = qty_in_stock-Math.abs(qty_to_be_delivered-qty_on_quote)
+            $scope.newReportFilteredData[$scope.filteredData[i]['pn']] = {
+                pn:$scope.filteredData[i]['pn'],
+                qty_to_order:recommended_qty
+            }
+        }
+
+        $http({
+            method:"POST",
+            url:'v1/getquotedetails',
+            data:$scope.newReportFilteredData,
+        }).then(function(res){
+            $scope.newQuoteData = []
+            for(var i=0;i<$scope.filteredData.length;i++){
+                if (res.data[$scope.filteredData[i]['pn']]!=undefined && $scope.filteredData[i]['pn']==res.data[$scope.filteredData[i]['pn']]['pn'])
+                {
+                    $scope.newQuoteData.push({
+                        pn:$scope.filteredData[i]['pn'],
+                        qty_on_quote:$scope.filteredData[i]['qty_on_quote'],
+                        qty_to_be_delivered:$scope.filteredData[i]['qty_to_be_delivered'],
+                        deliver_date:$scope.filteredData[i]['deliver_date'],
+                        po_number:$scope.filteredData[i]['po_number'],
+                        // price_per_unit:res.data[key]['price_per_unit'],
+                        qty_in_stock:$scope.filteredData[i]['qty_in_stock'],
+                        qty_to_purchase:res.data[$scope.filteredData[i]['pn']]['qty'],
+                        need_by_date:res.data[$scope.filteredData[i]['pn']]['needbydate']
+                    })
+                }
+
+            }
+
+        });
+    }
+
+    $scope.toggleReports = function(){
+        $scope.showReport = !$scope.showReport;
+        $scope.newReportData = false;
+    }
+
+    // $scope.createNewQuote = function () {
+
+    //     var modalInstance = $uibModal.open({
+    //         ariaLabelledBy: 'modal-title',
+    //         ariaDescribedBy: 'modal-body',
+    //         templateUrl: 'QuoteContent',
+    //         controller: 'QuoteModalCtrl',
+    //         controllerAs: '$ctrl',
+    //         resolve: {
+    //           pn: function () {
+    //             return "hello";
+    //           }
+    //         }
+    //     });
+
+
+    //     modalInstance.result.then(function (supplier) {
+    //       console.log(supplier)
+    //     });
+    //   };
+
+    $scope.logout = function(){
+        sessionStorage.removeItem('username');
+        $window.location.href='logout';
+    }
+});
+
+// angular.module('ims').controller('QuoteModalCtrl', function ($uibModalInstance,pn) {
+//     var $ctrl = this;
+//     $ctrl.pn=pn
+//     $ctrl.ok = function () {
+//         $uibModalInstance.close($ctrl.searchSupplier);
+//     };
+
+//     $ctrl.cancel = function () {
+//         $uibModalInstance.dismiss('cancel');
+//     };
+// });
+</script>
+{% verbatim %}
+    <div id="page-content-wrapper">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-lg-12" text-align="center">
+                    <h1>Purchasing</h1>
+                    <div class="container" ng-init="getInventoryData()">
+                        <div class="table-responsive">
+
+                            <div ng-show="showPurchasing">
+                                <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-click="getReportData()">Generate Report</button>
+                                <form name="myform">
+                                <h3>Beam+ build rate: <input type="text" ng-model="beamPlusBuildRate" value="{{beamPlusBuildRate}}"/> per Day</h3>
+                                <h3>BeamPro build rate: <input type="text" ng-model="beamProBuildRate" value="{{beamProBuildRate}}"/> per Day </h3>
+                                <button style="padding:6px 15px;background-color: #27458D;color:white;font-size:15px" ng-click="saveBuildRateDetails()">Save</button>
+                                <h3>Search part</h3><input type="text" ng-model="invn.pn"/>
+                                <span ng-if="!purchaseList"><h3>Loading ....</h3></span>
+                            <table class="table" ng-if="purchaseList">
+                                <thead>
+                                    <tr>
+                                        <th>Part Name</th>
+                                       <!--  <th>Description</th> -->
+                                        <th>Lead Time</th>
+                                        <th>Quantity  per Beam+</th>
+                                        <th>Quantity per BeamPro</th>
+                                        <!-- <th>Edit Part</th> -->
+                                        <!-- <th>Save Part</th> -->
+                                        <!-- <th>Delete Part</th> -->
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+
+                                    <tr ng-repeat="data in purchaseList | filter:invn">
+                                        <td>{{data.pn}}</td>
+                                     <!--    <td><input type="text" ng-model="inventory.leadTime" value="{{data.leadtime}}"/></td>
+                                        <td><input type="text" ng-model="inventory.beamPlusQty" value="{{data.qty_beamplus}}"/></td>
+                                        <td><input type="text" ng-model="inventory.beamProQty" value="{{data.qty_beampro}}"/></td> -->
+
+                                        <td>
+                                            <div ng-show="!editData">{{data.leadtime}}</div>
+                                            <div ng-show="editData">
+                                                <input type="text" ng-model="data.leadtime" value="{{data.leadtime}}"/>
+                                            </div>
+                                        </td>
+                                         <td>
+                                            <div ng-show="!editData">{{data.qty_beamplus}}</div>
+                                            <div ng-show="editData">
+                                                <input type="text" ng-model="data.qty_beamplus" value="{{data.qty_beamplus}}"/>
+                                            </div>
+                                        </td>
+                                         <td>
+                                            <div ng-show="!editData">{{data.qty_beampro}}</div>
+                                            <div ng-show="editData">
+                                                <input type="text" ng-model="data.qty_beampro" value="{{data.qty_beampro}}"/>
+                                            </div>
+                                        </td>
+                                        <td><button ng-click="editData = !editData">Edit</button></td>
+                                        <td><button ng-disabled="!editData" ng-click="savePartDetails(data.pn_id,data.leadtime,data.qty_beamplus,data.qty_beampro )">Save</button></td>
+                                        <!-- <td><button ng-click="deletePart(data.pn_id)">Delete</button></td> -->
+                                    </tr>
+                                </tbody>
+
+                            </table>
+                                </form>
+                            </div>
+
+                                <div>
+
+                                    <!-- <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-click="toggleReports()">Report</button>
+                                    <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-click="getNewReportData()">To be purchased</button> -->
+                                    <div class="container" ng-show="showReport">
+                                        <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-click="showReport=!showReport;showPurchasing=!showPurchasing">Go Back</button> <br/><br/>
+                                        <div class="table-responsive">
+                                        <!-- <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-click="showReport=!showReport">Go Back</button> -->
+                                        <!-- <h3>Search part</h3><input type="text" ng-model="searchReportPart.pn"/> -->
+                                        <span ng-if="filteredData.length==0"><h3>Loading ....</h3></span>
+                                            <table class="table">
+                                            <br/>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Part</th>
+                                                        <th>Description</th>
+                                                        <!-- <th>Quantity on Quote</th>
+                                                        <th>Quantity to be delivered</th>
+                                                        <th>Delivery Date</th>
+                                                        <th>Purchase Order Number</th>-->
+                                                        <th>Quantity in Stock</th>
+                                                        <th>Minimun qty to be ordered</th>
+                                                        <th>Need by date</th>
+
+
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr ng-repeat="data in filteredData | orderBy:'-po_number' | filter:searchReportPart">
+
+                                                        <td>{{data.pn}}</td>
+                                                        <td>{{data.desc}}</td>
+                                                        <!-- <td>{{data.qty_on_quote}}</td>
+                                                        <td>{{data.qty_to_be_delivered}}</td>
+                                                        <td>{{data.deliver_date}}</td>
+                                                        <td>{{data.po_number}}</td> -->
+                                                        <td>{{data.qty}}</td>
+                                                        <td>{{data.minqty}}</td>
+                                                        <td>{{data.needbydate}}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+
+                                            <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-csv="filteredData" filename="report.csv" csv-header="getHeader()">Export as CSV</button>
+                                        </div>
+                                    </div>
+
+                                    <div ng-show="newReportData">
+                                    <span ng-if="newQuoteData.length==0"><h3>No parts to purchase</h3></span>
+                                    <div ng-if="newQuoteData.length>0">
+                                        <h3>Search part</h3><input type="text" ng-model="searchPurchasePart.pn"/>
+                                            <table class="table">
+                                                <br/>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Part Number</th>
+                                                        <!-- <th>Supplier</th> -->
+                                                        <th>Quantity on Quote</th>
+                                                        <th>Quantity to be delivered</th>
+                                                        <th>Delivery Date</th>
+                                                        <th>Purchase Order Number</th>
+                                                        <!-- <th>Price per Unit</th> -->
+                                                        <th>Quantity in stock</th>
+                                                        <th>Quantity to Purchase</th>
+                                                        <th>Need by Date</th>
+                                                        <th></th>
+
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr ng-repeat="data in newQuoteData| filter:searchPurchasePart">
+
+                                                        <td>{{data.pn}}</td>
+                                                        <!-- <td>{{data.supplier}}</td> -->
+                                                        <td>{{data.qty_on_quote}}</td>
+                                                        <td>{{data.qty_to_be_delivered}}</td>
+                                                        <td>{{data.deliver_date}}</td>
+                                                        <td>{{data.po_number}}</td>
+                                                        <td>{{data.qty_in_stock}}</td>
+                                                        <td>{{data.qty_to_purchase}}</td>
+                                                        <td>{{data.need_by_date}}</td>
+                                                        <td ng-click="createNewQuote()"><button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px">Create Quote</button></td>
+
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Modal demo html -->
+                                <div class="modal-demo">
+                                    <script type="text/ng-template" id="QuoteContent">
+                                        <div class="modal-header">
+
+                                        </div>
+                                        <div class="modal-body" id="modal-body">
+
+                                        </div>
+                                        <div class="modal-footer">
+                                           <!--  <button class="btn btn-primary" type="button" >OK</button>
+                                            <button class="btn btn-warning" type="button" >Cancel</button> -->
+                                        </div>
+                                    </script>
+                                </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+{% endverbatim %}
+{% endblock %}

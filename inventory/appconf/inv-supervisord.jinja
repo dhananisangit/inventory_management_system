@@ -1,0 +1,8 @@
+[program:{{ app_name }}]
+command = {{ virtualenv_dir }}/bin/gunicorn_start.sh                            ; Command to start app
+user = {{ app_user }}                                                        ; User to run as
+redirect_stderr = true                                                ; Save stderr in the same log
+environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8                       ; Set UTF-8 as default encoding
+stdout_logfile = {{ deploy_dir }}/logs/{{ app_name }}-gunicorn_supervisor.log        ; Where to write log messages
+stdout_logfile_maxbytes=0
+stdout_logfile_backups=0

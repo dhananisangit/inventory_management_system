@@ -1,0 +1,417 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% load static %}<link rel="stylesheet" href="{% static 'css/divstyle.css' %}">
+<script>
+
+angular.module("ims", ['angular.filter', 'ngAnimate', 'ngSanitize', 'ui.bootstrap', 'ngRoute', 'ui.router'])
+    .config(['$httpProvider', function($httpProvider) {
+        $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+        $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+    }])
+
+    .controller('move_page_ctrl', function($scope,$http,$window){
+   $scope.username = sessionStorage.getItem('{{ username }}')
+
+   $scope.showPartNumbers = true;
+   $scope.showPartInfo = false;
+   $scope.regex = '\\d+';
+   $scope.moveQuantity = 0;
+   $scope.comment = "e.g. Production"
+
+   $scope.generic = function(){
+       $scope.toS = false;
+    //    $scope.toI = false;
+       $scope.fromS = false;
+    //    $scope.fromI = false;
+       $scope.hideToSupplier = false;
+       $scope.moveQuantity = 0;
+       $scope.toLocation_move = null
+   }
+
+
+   $scope.getParts = function(){
+    $scope.generic();
+    $http({
+        method:"GET",
+        url:'v1/getpartsname'
+    }).then(function(res){
+        $scope.parts = []
+        for (var i = 0; i <res.data.length; i++) {
+
+            $scope.parts.push({
+                name:res.data[i][1],
+                id:res.data[i][0]
+            });
+        }
+        $scope.searchPart = "";
+    });
+   }
+
+    $scope.partOptions = function(partID){
+        if($scope.showPartInfo) $scope.showPartInfo = false;
+        else {
+             $http({
+                method:"POST",
+                url:'v1/getpartinfo',
+                data:partID,
+            }).then(function(res){
+                $scope.partInfo = [];
+                 for (var i = 0; i < res.data.part_info.length; i++) {
+                    if(res.data.part_info[i]['quantity']>0){
+                        $scope.partInfo.push({
+                            'name': res.data.part_info[i]['part_name'],
+                            'location':res.data.part_info[i]['location_name'],
+                            'location_id':res.data.part_info[i]['location_id'],
+                            'building_id':res.data.part_info[i]['building_id'],
+                            'part_number':res.data.part_info[i]['part_number'],
+                            'building':res.data.part_info[i]['building_name'],
+                            'qty': res.data.part_info[i]['quantity']
+                        });
+           //             $scope.totalQty+=res.data[i][2];
+                    }
+                }
+
+            $scope.partName = res.data.part_info[0]['part_name']
+            $scope.part_id = res.data.part_info[0]['part_number']
+            $scope.supplier_building = res.data.supplier.building[0][0]
+            $scope.supplier_location = res.data.supplier.location[0][0]
+            $scope.production = res.data.production[0][0]
+            $scope.scrap = res.data.scrap[0][0]
+            $scope.showPartInfo = true;
+            });
+        }
+        if($scope.showPartNumbers) $scope.showPartNumbers = false;
+        else $scope.showPartNumbers = true;
+    }
+
+    $scope.onSelect = function($item){
+        $scope.partOptions($item.id);
+    }
+    $scope.showMovesPart = function(){
+        if($scope.movesPart) $scope.movesPart = false;
+        else $scope.movesPart = true;
+        $http({
+                method:"GET",
+                url:'v1/getbuildings',
+            }).then(function(res){
+
+                $scope.buildings = [];
+               // $scope.locations = [];
+                for (var i =0; i < res.data.length; i++) {
+                    $scope.buildings.push({
+                        'id':res.data[i][0],
+                        'name':res.data[i][1]
+                    })
+                }
+            });
+    }
+
+    $scope.changeFrom = function(){
+        if($scope.From == "inventory") {$scope.fromI = true; $scope.fromS = false;$scope.hideToSupplier=false;}
+        if($scope.From == "supplier") {$scope.fromS = true; $scope.fromI = false; $scope.hideToSupplier=true;}
+
+    }
+
+    $scope.changeTo = function(){
+        if($scope.To == "inventory") {$scope.toI = true;$scope.toS = false;}
+        if($scope.To == "supplier") {$scope.toS = true;$scope.toI = false;}
+    }
+
+    $scope.countAllowedQty = function(){
+        $scope.totalQty = 0;
+        for(var i=0;i<$scope.partInfo.length;i++){
+            if($scope.partInfo[i]['building_id']==$scope.fromBuilding && $scope.partInfo[i]['location_id']==$scope.fromLocation) $scope.totalQty=$scope.partInfo[i]['qty']
+        }
+        if($scope.fromS==true || $scope.toS==true) $scope.totalQty = Infinity
+    }
+
+    $scope.displayLocations = function(){
+
+        $http({
+                method:"POST",
+                url:'v1/getlocations',
+                data:$scope.toBuilding,
+            }).then(function(res){
+                $scope.locations = [];
+                for (var i = 0; i < res.data.length; i++) {
+                    $scope.locations.push({
+                        'id':res.data[i][0],
+                        'name':res.data[i][1],
+                        'building_id':res.data[i][2]
+                    })
+                }
+            });
+    }
+
+    $scope.onLocationSelect = function($item){
+        $scope.toLocation_move = $item.id
+    }
+
+    $scope.moveParts = function(){
+        var flag = false;
+        if($scope.From=="inventory" && $scope.To=="inventory"){
+            if($scope.fromBuilding==undefined||$scope.fromLocation==undefined||$scope.toBuilding==undefined||$scope.toLocation==undefined) {swal("Failed", "Please fill in accurate details to move parts!", "error"); flag = false;}
+            else{
+                flag = true;
+                var data = {
+                    fromB:$scope.fromBuilding,
+                    fromL:$scope.fromLocation,
+                    toB:$scope.toBuilding,
+                    toL:$scope.toLocation_move,
+                    qty:$scope.moveQuantity,
+                    partName:$scope.part_id,
+                    why:$scope.comment
+                }
+            }
+        }
+        else if($scope.From=="inventory" && $scope.To=="supplier"){
+            if($scope.fromBuilding==undefined||$scope.fromLocation==undefined||$scope.toSupplier==undefined||$scope.toSupplier=="") {swal("Failed", "Please fill in accurate details to move parts!", "error"); flag = false;}
+            else{
+                flag = true;
+                var data = {
+                    fromB:$scope.fromBuilding,
+                    fromL:$scope.fromLocation,
+                    toB:$scope.supplier_building,
+                    toL:$scope.supplier_location,
+                    toS:$scope.toSupplier,
+                    qty:$scope.moveQuantity,
+                    partName:$scope.part_id,
+                    why:$scope.comment
+                }
+            }
+        }
+
+        else if($scope.From=="supplier" && $scope.To=="inventory"){
+            if($scope.toBuilding==undefined||$scope.toLocation==undefined||$scope.fromSupplier==undefined||$scope.fromSupplier=="") {swal("Failed", "Please fill in accurate details to move parts!", "error"); flag = false;}
+            else{
+                flag = true;
+                var data = {
+                    toB:$scope.toBuilding,
+                    toL:$scope.toLocation_move,
+                    fromB:$scope.supplier_building,
+                    fromL:$scope.supplier_location,
+                    fromS:$scope.fromSupplier,
+                    qty:$scope.moveQuantity,
+                    partName:$scope.part_id,
+                    why:$scope.comment
+                }
+            }
+        }
+        else if($scope.From==undefined || $scope.To==undefined) {swal("Failed", "Please fill in accurate details to move parts!", "error"); flag = false;}
+
+        if(flag){
+            $http({
+                method:"POST",
+                url:'v1/changepartlocation',
+                data:data,
+            }).then(function(res){
+              console.log(res.data)
+              if(res.data.status==200) swal("Done", "Part Moved!", "success")
+              else if(res.data.status=304)swal("Failed", "Please fill in accurate details to move parts!", "error")
+                $scope.partOptions($scope.partName);
+                $scope.generic();
+            });
+        }
+    }
+
+});
+</script>
+    <!-- /#sidebar-wrapper -->
+
+    <div id="page-content-wrapper" ng-controller={{controller_id}}>
+        <div class="container-fluid" ng-init="getParts()">
+            <div class="row">
+                <div class="col-lg-12" align="center">
+                    <h1><center>Move Parts</center></h1> <br/>
+                    <div ng-show="showPartNumbers">
+                        <input type="text" class="textbox-control" ng-model="searchPart" uib-typeahead="part.name for part in parts | filter:$viewValue" typeahead-on-select="onSelect($item)" placeholder="e.g. 2001" typeahead-no-results="noResults"><br/>
+                        <span align="left" ng-if="noResults">
+                            No Such Part Found
+                        </span>
+                    </div>
+
+                </div>
+{% verbatim %}
+    <div id="lookup" class="table-editable" >
+    <div ng-show="showPartInfo">
+    <button style="padding:10px 24px;background-color: #27458D;color:white;font-size:20px" ng-click ="partOptions()">Go back</button>
+        <div id="results" class="container-fluid">
+            <div class ="row">
+                <div class= "col-md-6">
+
+                    <h3 align="left">Part Number : {{partName}}</h3>
+                    <table class="table" ng-if="partInfo.length>0">
+                        <thead>
+                            <tr>
+                                <th>Building</th>
+                                <th>Location</th>
+                                <th>Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="data in partInfo">
+                                <td>{{data.building}}</td>
+                                <td>{{data.location}}</td>
+                                <td>{{data.qty}}</td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                    <span align="left" ng-if="partInfo.length==0">
+                            No Inventory
+                        </span>
+
+                </div>
+                <div class="col-md-6" align="left">
+                    <!-- <h2 href="" ng-click="showMovesPart()">Move</h2> -->
+                    <button style="padding:10px 24px;background-color: #27458D;color:white;font-size:20px" ng-click="showMovesPart()">Move</button>
+                    <div ng-show="movesPart">
+                    <form name="form" novalidate>
+                        <div class="container-fluid">
+                            <div class="row">
+                            <h3>From: </h3>
+                                <div style="padding-left: 20px;" align="left">
+
+                                    <select ng-model="From" ng-change="changeFrom()" required>
+                                        <option value="inventory">Inventory</option>
+                                        <option value="supplier">Supplier</option>
+                                    </select>
+
+                                </div>
+                                <!-- <br/> -->
+                                      <!-- <h3>From: </h3> -->
+<!--                                 <div class="btn-group" uib-dropdown uib-dropdown-toggle">
+                                  <button id="single-button" type="button" class="btn btn-default dropdown-toggle" uib-dropdown-toggle>
+                                    {{From_dropdown}} <span class="caret"></span>
+                                  </button>
+                                  <ul class="dropdown-menu" ng-model="From" uib-dropdown-menu role="menu" aria-labelledby="single-button">
+                                    <li value="inventory"><a href="" ng-click="changeFrom('inventory')">Inventory</a></li>
+                                    <li value="supplier"><a href="" ng-click="changeFrom('supplier')">Supplier</a></li>
+                                  </ul>
+                                </div> -->
+
+                                <div ng-show="fromI">
+                                    <div class="col-sm-3">
+                                        <h4>Building: </h4>
+                                        <span style="color:#e51837;" ng-show="form.fromB.$error.required">*</span>
+                                        <select ng-change="filterLocations()" name="fromB" ng-model="fromBuilding" required>
+                                            <option ng-repeat="place in partInfo | unique: 'building'" value={{place.building_id}}>{{place.building}}</option>
+                                        </select>
+                                        <br/>
+<!--                                          <div class="btn-group" uib-dropdown uib-dropdown-toggle">
+                                          <button id="single-button1" type="button" class="btn btn-default dropdown-toggle" uib-dropdown-toggle>
+                                            {{fromBuilding}} <span class="caret"></span><span style="color:#e51837;" ng-show="form.fromB.$error.required">*</span>
+                                          </button>
+                                          <ul class="dropdown-menu" ng-model="fromBuilding" uib-dropdown-menu role="menu" aria-labelledby="single-button1">
+                                            <li ng-repeat="place in partInfo | unique: 'building'" value="{{place.building}}"><a href="" ng-click="filterLocations(place.building)">{{place.building}}</a></li>
+
+                                          </ul>
+                                        </div> -->
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <h4>Location: </h4><span style="color:#e51837;" ng-show="form.fromL.$error.required">*</span>
+                                        <select name="fromL" ng-model="fromLocation" required>
+                                            <option ng-repeat="place in partInfo" value={{place.location_id}}>{{place.location}}</option>
+                                            <option value={{scrap}}>Scrap</option>
+                                            <option value={{production}}>Production</option>
+                                             <!-- <option value="287">Revision</option> -->
+                                        </select>
+                                        <br/>
+<!--                                          <div class="btn-group" uib-dropdown uib-dropdown-toggle">
+                                          <button id="single-button1" type="button" class="btn btn-default dropdown-toggle" uib-dropdown-toggle>
+                                            {{fromLocation}} <span class="caret"></span><span style="color:#e51837;" ng-show="form.fromB.$error.required">*</span>
+                                          </button>
+                                          <ul class="dropdown-menu" ng-model="fromLocation" uib-dropdown-menu role="menu" aria-labelledby="single-button1">
+                                            <li ng-repeat="place in fromIndexedLocation track by $index" value="{{place}}"><a href="" ng-click="$parent.fromLocation = place">{{place}}</a></li>
+
+                                            <li value="Scrap" ng-if="admin" ><a href="" ng-click="$parent.fromLocation = 'Scrap'">Scrap</a></li>
+                                            <li value="Production" ng-if="admin" > <a href="" ng-click="$parent.fromLocation = 'Production'">Production</a></li>
+
+                                          </ul>
+                                        </div> -->
+                                    </div>
+                                </div>
+                                <div ng-show="fromS">
+                                <br/>
+                                    <input class="control1" ng-model="fromSupplier" type="text" placeholder="Supplier Name"/>
+                                </div>
+                            </div>
+                        </div><br/>
+                        <div class="container-fluid">
+                            <div class="row">
+                                <div style="padding-left: 20px;" align="left">
+                                    <h3>To: </h3>
+                                    <select ng-model="To" ng-change="changeTo()" required>
+                                        <option value="inventory">Inventory</option>
+                                        <option value="supplier" ng-if="fromS==false">Supplier</option>
+                                    </select>
+                                </div>
+
+
+                                <!-- <h3>To: </h3> -->
+<!--                                 <div class="btn-group" uib-dropdown uib-dropdown-toggle">
+                                  <button id="single-button" type="button" class="btn btn-default dropdown-toggle" uib-dropdown-toggle>
+                                    {{To_dropdown}} <span class="caret"></span>
+                                  </button>
+                                  <ul class="dropdown-menu" ng-model="To" uib-dropdown-menu role="menu" aria-labelledby="single-button">
+                                    <li value="inventory"><a href="" ng-click="changeTo('inventory')">Inventory</a></li>
+                                    <li value="supplier"><a href="" ng-click="changeTo('supplier')">Supplier</a></li>
+                                  </ul>
+                                </div> -->
+
+                            <div ng-show="toI">
+                                <div class="col-sm-3">
+                                    <h4>Building: </h4><span style="color:#e51837;" ng-show="form.toB.$error.required">*</span>
+                                    <select name="toB"  ng-model="toBuilding" ng-change="displayLocations()" required>
+                                        <option ng-repeat="building in buildings" value={{building.id}}>{{building.name}}</option>
+                                    </select>
+                                     <br/>
+<!--                                          <div class="btn-group" uib-dropdown uib-dropdown-toggle">
+                                          <button id="single-button" type="button" class="btn btn-default dropdown-toggle" uib-dropdown-toggle>
+                                            {{toBuilding}} <span class="caret"></span><span style="color:#e51837;" ng-show="form.fromB.$error.required">*</span>
+                                          </button>
+                                          <ul class="dropdown-menu" ng-model="toBuilding" uib-dropdown-menu role="menu" aria-labelledby="single-button">
+                                            <li ng-repeat="building in buildings" value="{{building}}"><a href="" ng-click="displayLocations(building)">{{building}}</a></li>
+
+                                          </ul>
+                                        </div> -->
+                                </div>
+                                <div class="col-sm-3">
+                                    <!-- <h4>Location: </h4> -->
+                                    <br/>
+                                    <!-- <span style="color:#e51837;" ng-show="form.toL.$error.required">*</span> -->
+
+                                    <input type="text" class="form-control" ng-model="toLocation" uib-typeahead="location.name for location in locations | filter:$viewValue" typeahead-on-select="onLocationSelect($item)" typeahead-append-to-body="true" placeholder="Location">
+                                </div>
+                            </div>
+                                <div ng-show="toS">
+                                <br/>
+                                    <!-- <h4>Supplier: </h4> -->
+                                    <input class="control1" ng-model="toSupplier" type="text" placeholder="Supplier Name"/>
+                                </div>
+                            </div>
+                        </div>
+                        <h3>Quantity:</h3>
+                        <input name="qty" type="text" ng-model="moveQuantity" ng-change="countAllowedQty()" ng-pattern="regex" placeholder="Type here"/>
+                        <span>
+                            <span style="color:#e51837;" ng-show="form.qty.$error.pattern && !disableButton">* Please enter a valid number</span><br/>
+                            <span style="color:#e51837;" ng-show="moveQuantity>totalQty">* Number is more than total Quantity</span><br/>
+                            <span style="color:#e51837;" ng-show="disableButton">* Please fill all the details</span>
+                        </span>
+                        <h3>Comment:</h3>
+                        <input name="comment" type="text" ng-model="comment" placeholder="e.g. production"/>
+                        </form><br/><br/>
+                       <button  style="color:white" class="submit-button" ng-click="moveParts(form)">Move</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            </div>
+        </div>
+    </div>
+     {% endverbatim %}
+
+    {% endblock %}

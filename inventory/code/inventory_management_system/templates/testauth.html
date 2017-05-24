@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div>
+Body by HTML
+</div>
+<div>
+<a href="{% url 'auth_views.logout' %}?next={{ request.path | urlencode }}">Logout</a>
+</div>
+{% endblock %}
