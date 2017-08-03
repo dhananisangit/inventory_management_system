@@ -20,14 +20,14 @@ class GenerateReport():
             else:
                 reportData[p] = {'part_id':part.part_number_id,'qty':part.quantity, 'pn':p, 'desc':part.get_parts_description(part.part_number)}
         build_rate = Product_rate.objects.all()
-        beamplus = build_rate[0].build_rate
-        beampro = build_rate[1].build_rate
+        teamplus = build_rate[0].build_rate
+        teampro = build_rate[1].build_rate
         purchase_details = Purchase.objects.all()
         final_data = {}
         for data in purchase_details:
             part = str(data.part_number)
 
-            formula = ((data.qty_beamplus*beamplus)+(data.qty_beampro*beampro))*1.25
+            formula = ((data.qty_teamplus*teamplus)+(data.qty_teampro*teampro))*1.25
             if part in reportData and reportData[part]['qty']<=formula*data.lead_time:
                 days = reportData[part]['qty']/formula if formula!=0.0 else 0
                 today = datetime.date.today()
@@ -48,46 +48,46 @@ class GenerateReport():
     		business_days_to_add -= 1
     	return '%s/%s/%s'%(current_date.month,current_date.day,current_date.year)
 
-    # def init_report(self):
-    # 	inventory_details = Inventory_details.objects.annotate(Sum('quantity'))
-    # 	existing_quote_mapping, incoming_orders = self.getPurchaseQuoteMapping()
-    # 	new_quote = self.getPurchaseReportFigures(existing_quote_mapping, inventory_details, incoming_orders)
-    # 	return new_quote
+     def init_report(self):
+     	inventory_details = Inventory_details.objects.annotate(Sum('quantity'))
+     	existing_quote_mapping, incoming_orders = self.getPurchaseQuoteMapping()
+     	new_quote = self.getPurchaseReportFigures(existing_quote_mapping, inventory_details, incoming_orders)
+     	return new_quote
 
-    # def getPurchaseQuoteMapping(self):
-    # 	with connections['sterp'].cursor() as cursor:
-    # 		cursor.execute("SELECT product_product.default_code, purchase_order.name, purchase_order.state,\
-    #                         purchase_order_line.product_qty, purchase_order_line.date_planned, res_partner.name,\
-    #                         purchase_order_line.price_unit, purchase_order.id FROM purchase_order INNER JOIN\
-    #                         purchase_order_line ON purchase_order.id=purchase_order_line.order_id INNER JOIN\
-    #                         product_product ON purchase_order_line.product_id=product_product.id FULL OUTER JOIN\
-    #                         res_partner ON purchase_order.partner_id=res_partner.id WHERE (purchase_order.state='draft'\
-    #                         OR purchase_order.state='sent' OR purchase_order.state='approved') AND\
-    #                         product_product.default_code LIKE '83-0%'")
-    #
-    # 		existing_quote_mapping = cursor.fetchall()
-    #
-    # 		cursor.execute("SELECT stock_picking.min_date, purchase_order_line.product_qty, purchase_order.id\
-    #                         FROM stock_picking INNER JOIN purchase_order ON stock_picking.purchase_id=purchase_order.id\
-    #                         INNER JOIN purchase_order_line ON purchase_order.id=purchase_order_line.order_id WHERE\
-    #                         stock_picking.type='in' AND stock_picking.state='assigned'")
-    # 		incoming_orders = cursor.fetchall()
-    #
-    # 	return (existing_quote_mapping, incoming_orders)
-
-
+     def getPurchaseQuoteMapping(self):
+     	with connections['sterp'].cursor() as cursor:
+     		cursor.execute("SELECT product_product.default_code, purchase_order.name, purchase_order.state,\
+                             purchase_order_line.product_qty, purchase_order_line.date_planned, res_partner.name,\
+                             purchase_order_line.price_unit, purchase_order.id FROM purchase_order INNER JOIN\
+                             purchase_order_line ON purchase_order.id=purchase_order_line.order_id INNER JOIN\
+                             product_product ON purchase_order_line.product_id=product_product.id FULL OUTER JOIN\
+                             res_partner ON purchase_order.partner_id=res_partner.id WHERE (purchase_order.state='draft'\
+                             OR purchase_order.state='sent' OR purchase_order.state='approved') AND\
+                             product_product.default_code LIKE '83-0%'")
+    
+     		existing_quote_mapping = cursor.fetchall()
+    
+     		cursor.execute("SELECT stock_picking.min_date, purchase_order_line.product_qty, purchase_order.id\
+                             FROM stock_picking INNER JOIN purchase_order ON stock_picking.purchase_id=purchase_order.id\
+                             INNER JOIN purchase_order_line ON purchase_order.id=purchase_order_line.order_id WHERE\
+                             stock_picking.type='in' AND stock_picking.state='assigned'")
+     		incoming_orders = cursor.fetchall()
+    
+     	return (existing_quote_mapping, incoming_orders)
 
 
-    # def getPurchaseReportFigures(self, existing_quote_mapping, reportData, incoming_orders):
-    # 	new_quote = {}
-    # 	for quote in existing_quote_mapping:
-    # 		if quote[0][4:8] in reportData and reportData[quote[0][4:8]]['pn']==quote[0][4:8]:
-    # 			if quote[2]=='draft' or quote[2]=='sent':
-    # 				data = {quote[0][4:8]:{'pn':quote[0][4:8],'qty_on_quote':quote[3],'qty_to_be_delivered':'0','deliver_date':quote[4],'po_number':quote[1], 'qty_in_stock':reportData[quote[0][4:8]]['qty']}}
-    # 				new_quote.update(data)
-    # 			elif quote[2]=='approved':
-    # 				for item in incoming_orders:
-    # 					if quote[7]==item[2]:
-    # 						data = {quote[0][4:8]:{'pn':quote[0][4:8],'qty_on_quote':'0','qty_to_be_delivered':item[1],'deliver_date':quote[4],'po_number':quote[1], 'qty_in_stock':reportData[quote[0][4:8]]['qty']}}
-    # 						new_quote.update(data)
-    # 	return new_quote
+
+
+     def getPurchaseReportFigures(self, existing_quote_mapping, reportData, incoming_orders):
+     	new_quote = {}
+     	for quote in existing_quote_mapping:
+     		if quote[0][4:8] in reportData and reportData[quote[0][4:8]]['pn']==quote[0][4:8]:
+     			if quote[2]=='draft' or quote[2]=='sent':
+     				data = {quote[0][4:8]:{'pn':quote[0][4:8],'qty_on_quote':quote[3],'qty_to_be_delivered':'0','deliver_date':quote[4],'po_number':quote[1], 'qty_in_stock':reportData[quote[0][4:8]]['qty']}}
+     				new_quote.update(data)
+     			elif quote[2]=='approved':
+     				for item in incoming_orders:
+     					if quote[7]==item[2]:
+     						data = {quote[0][4:8]:{'pn':quote[0][4:8],'qty_on_quote':'0','qty_to_be_delivered':item[1],'deliver_date':quote[4],'po_number':quote[1], 'qty_in_stock':reportData[quote[0][4:8]]['qty']}}
+     						new_quote.update(data)
+     	return new_quote
