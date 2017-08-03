@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 
 import os
 import sys
+from common.settings import *
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -24,8 +25,6 @@ SECRET_KEY = '@pzaeeu_u+ggea4cvbhkl3b%1dhtmor3%zv4h7d5%ks38506=k'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -79,16 +78,6 @@ WSGI_APPLICATION = 'inventory_management_system.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'ims',
-        'USER': 'postgres',
-        'PASSWORD': 'password',
-        'HOST': '10.200.1.30',
-        'PORT': '5432'
-    }
-}
 
 
 # Password validation
@@ -120,12 +109,6 @@ LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = ''
 
-# Odoo settings
-AUTH_ODOO_HOSTNAME = 'sterp.suitabletech.com'
-AUTH_ODOO_PROTOCOL = 'xmlrpc+ssl'
-AUTH_ODOO_BINDPORT = 443
-AUTH_ODOO_DATABASE = 'suitable'
-AUTH_ODOO_GROUPFILTER = [1]
 
 
 # Internationalization
