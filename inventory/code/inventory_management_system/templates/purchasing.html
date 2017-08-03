@@ -28,8 +28,8 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
                 $scope.purchaseList.push({
                     'pn':res.data[i]['part_name'],
                     'leadtime':res.data[i]['lead_time'],
-                    'qty_beamplus':res.data[i]['qty_beamplus'],
-                    'qty_beampro':res.data[i]['qty_beampro'],
+                    'qty_teamplus':res.data[i]['qty_teamplus'],
+                    'qty_teampro':res.data[i]['qty_teampro'],
                     'pn_id':res.data[i]['part_number']
                 });
             }
@@ -39,8 +39,8 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
             method:"GET",
             url:'v1/getbuildratedetails'
         }).then(function(res){
-            $scope.beamPlusBuildRate = res.data[0]['build_rate'];
-            $scope.beamProBuildRate = res.data[1]['build_rate'];
+            $scope.teamPlusBuildRate = res.data[0]['build_rate'];
+            $scope.teamProBuildRate = res.data[1]['build_rate'];
         });
     }
 
@@ -105,8 +105,8 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
             method:"POST",
             url:'v1/savebuildrate',
             data:{
-                beamplus:$scope.beamPlusBuildRate,
-                beampro:$scope.beamProBuildRate
+                teamplus:$scope.teamPlusBuildRate,
+                teampro:$scope.teamProBuildRate
             },
         }).then(function(res){
            if(res.status==200) swal("Done", "Build Rate saved!", "success")
@@ -118,12 +118,12 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
     }
 
     $scope.savePartDetails = function(part, leadtime, beamplus, beampro){
-        if((leadtime==undefined||leadtime=="") && (beamplus==undefined||beamplus=="") && (beampro==undefined||beampro=="")){
+        if((leadtime==undefined||leadtime=="") && (teamplus==undefined||teamplus=="") && (teampro==undefined||teampro=="")){
             alert("error");
         }
         var lead_time = leadtime==undefined||leadtime==""?0:leadtime;
-        var beam_plus = beamplus==undefined||beamplus==""?0:beamplus;
-        var beam_pro = beampro==undefined||beampro==""?0:beampro;
+        var team_plus = teamplus==undefined||beamplus==""?0:teamplus;
+        var team_pro = teampro==undefined||beampro==""?0:teampro;
         swal({
                 title: "Are you sure?",
                 text: "Save details for part:"+part,
@@ -258,8 +258,8 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
                             <div ng-show="showPurchasing">
                                 <button style="padding:6px 16px;background-color: #27458D;color:white;font-size:15px" ng-click="getReportData()">Generate Report</button>
                                 <form name="myform">
-                                <h3>Beam+ build rate: <input type="text" ng-model="beamPlusBuildRate" value="{{beamPlusBuildRate}}"/> per Day</h3>
-                                <h3>BeamPro build rate: <input type="text" ng-model="beamProBuildRate" value="{{beamProBuildRate}}"/> per Day </h3>
+                                <h3>Beam+ build rate: <input type="text" ng-model="teamPlusBuildRate" value="{{teamPlusBuildRate}}"/> per Day</h3>
+                                <h3>BeamPro build rate: <input type="text" ng-model="teamProBuildRate" value="{{teamProBuildRate}}"/> per Day </h3>
                                 <button style="padding:6px 15px;background-color: #27458D;color:white;font-size:15px" ng-click="saveBuildRateDetails()">Save</button>
                                 <h3>Search part</h3><input type="text" ng-model="invn.pn"/>
                                 <span ng-if="!purchaseList"><h3>Loading ....</h3></span>
@@ -269,8 +269,8 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
                                         <th>Part Name</th>
                                        <!--  <th>Description</th> -->
                                         <th>Lead Time</th>
-                                        <th>Quantity  per Beam+</th>
-                                        <th>Quantity per BeamPro</th>
+                                        <th>Quantity  per Team+</th>
+                                        <th>Quantity per TeamPro</th>
                                         <!-- <th>Edit Part</th> -->
                                         <!-- <th>Save Part</th> -->
                                         <!-- <th>Delete Part</th> -->
@@ -292,15 +292,15 @@ angular.module("ims", ['ngSanitize','ui.bootstrap', 'ngCsv'])
                                             </div>
                                         </td>
                                          <td>
-                                            <div ng-show="!editData">{{data.qty_beamplus}}</div>
+                                            <div ng-show="!editData">{{data.qty_teamplus}}</div>
                                             <div ng-show="editData">
-                                                <input type="text" ng-model="data.qty_beamplus" value="{{data.qty_beamplus}}"/>
+                                                <input type="text" ng-model="data.qty_teamplus" value="{{data.qty_teamplus}}"/>
                                             </div>
                                         </td>
                                          <td>
-                                            <div ng-show="!editData">{{data.qty_beampro}}</div>
+                                            <div ng-show="!editData">{{data.qty_teampro}}</div>
                                             <div ng-show="editData">
-                                                <input type="text" ng-model="data.qty_beampro" value="{{data.qty_beampro}}"/>
+                                                <input type="text" ng-model="data.qty_teampro" value="{{data.qty_teampro}}"/>
                                             </div>
                                         </td>
                                         <td><button ng-click="editData = !editData">Edit</button></td>
