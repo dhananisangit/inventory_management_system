@@ -5,16 +5,16 @@ SECRET_KEY = '@pzaeeu_u+ggea4cvbhkl3b%1dhtmor3%zv4h7d5%ks38506=k'
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['']
+ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOST')]
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'ims',
-        'USER': 'postgres',
-        'PASSWORD': 'password',
-        'HOST': '10.200.1.30',
-        'PORT': '5432'
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT')
     }
 }
 
