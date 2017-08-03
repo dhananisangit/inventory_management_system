@@ -37,8 +37,6 @@ $ ./manage.py runserver
 
 This sets up our database and starts the server. Go to `localhost:8000`. Now angular and drf play nicely
 
-![django on the right](http://i62.tinypic.com/2z3uvfb.png)
-
 ### Create Todo model
 
 This is the same as creating a table in our database to hold all of the todos. Each todo will take up a row in the table. The model defines what the columns are going to be. For each todo we'll have a title, description and is_completed.
