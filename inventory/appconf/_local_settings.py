@@ -32,8 +32,8 @@ LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = ''
 
 # Odoo settings
-AUTH_ODOO_HOSTNAME = 'sterp.suitabletech.com'
-AUTH_ODOO_PROTOCOL = 'xmlrpc+ssl'
-AUTH_ODOO_BINDPORT = 443
-AUTH_ODOO_DATABASE = 'suitable'
-AUTH_ODOO_GROUPFILTER = [1]
+AUTH_ODOO_HOSTNAME = os.environ.get('ODOO_USERNAME')
+AUTH_ODOO_PROTOCOL = os.environ.get('ODOO_PROTOCOL')
+AUTH_ODOO_BINDPORT = os.environ.get('ODOO_PORT')
+AUTH_ODOO_DATABASE = os.environ.get('ODOO_DATABASE')
+AUTH_ODOO_GROUPFILTER = os.environ.get('ODOO_FILTER')
